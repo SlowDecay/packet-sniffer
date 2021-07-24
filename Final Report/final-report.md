@@ -142,3 +142,29 @@ To implement the packet sniffing attack, I needed to put the NIC into promiscuou
 
 
 
+## 3. Snapshots of Attacker and Victim screens
+
+
+
+<img src="https://raw.githubusercontent.com/SlowDecay/packet-sniffer/main/attacker-screen.png" alt="attacker-screen" title="Attacker screen" style="zoom:100%;" />
+
+​																			Figure 1: Attacker Screen
+
+
+
+![victim-screen](https://raw.githubusercontent.com/SlowDecay/packet-sniffer/main/victim-screen.png)
+
+​																			Figure 2: Victim Screen
+
+
+
+## 4. Justification
+
+As seen from the snapshots, the sniffer program could indeed capture the packet sent by the victim machine containing username and password. I have also tested it with some other websites. So I am confident that my attack is successfull.
+
+
+
+## 5. Countermeasure
+
+The countermeasure against packet sniffing attack is using secured protocols that encrypt data. HTTP is not secure, so a sniffer program can sniff and extract confidential data. If we use HTTPS, the sniffer program will still be able to sniff but cannot read the actual data anymore as it will be encrypted. Thus leakage of sensitive data can be prevented.
+
