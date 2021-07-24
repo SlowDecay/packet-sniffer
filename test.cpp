@@ -30,12 +30,12 @@ struct ipheader {
 };
 
 struct tcpheader {
-    unsigned short int source;
-    unsigned short int dest;
-    unsigned int seq;
-    unsigned int ack_seq;
+    unsigned short int source; // Source port
+    unsigned short int dest; // Destination port
+    unsigned int seq; // Sequence number
+    unsigned int ack_seq; // Acknowledgement Number
     unsigned short int   res1:4,
-            doff:4,
+            doff:4, // Header length
             fin:1,
             syn:1,
             rst:1,
@@ -44,9 +44,9 @@ struct tcpheader {
             urg:1,
             ece:1,
             cwr:1;
-    unsigned short int window;
-    unsigned short int check;
-    unsigned short int urg_ptr;
+    unsigned short int window; // Window size
+    unsigned short int check; // checksum
+    unsigned short int urg_ptr; // Urgent pointer
 };
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header,
@@ -61,31 +61,25 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header,
     if(ip->iph_protocol != IPPROTO_TCP) return;
     
 
-    tcphdr *tcphh = (tcphdr*) (packet + sizeof(ethheader) + ip->iph_ihl * 4);
-    int data_size = ip->iph_len - ip->iph_ihl * 4 - tcphh->doff * 4;
+    struct tcphdr *tcphh = (struct tcphdr*) (packet + sizeof(struct ethheader) + ip->iph_ihl * 4);
+    int data_size = ntohs(ip->iph_len) - ip->iph_ihl * 4 - tcphh->doff * 4;
     
     char* data = (char*) (packet + sizeof(ethheader) + ip->iph_ihl * 4 + tcphh->doff * 4);
 
     http_parser parser(data);
-    
     if(parser.isHTTP() == false) return;
 
-    printf("Total data size = %hu\n", data_size);
-    printf("       From: %s\n", inet_ntoa(ip->iph_sourceip));   
-    printf("         To: %s\n", inet_ntoa(ip->iph_destip));
+    printf("Total data size: %hu\n", data_size);
+    printf("           From: %s\n", inet_ntoa(ip->iph_sourceip));  
+    printf("             To: %s\n\n", inet_ntoa(ip->iph_destip));
 
 
     /* determine protocol */
     switch(ip->iph_protocol) {                                 
         case IPPROTO_TCP:
-            printf("   Protocol: TCP\n");
-
-            printf("Source Port: %hu\n", ntohs(tcphh->source));   
-            printf("  Dest Port: %hu\n", ntohs(tcphh->dest));
-            printf("Header size: %hu\n", tcphh->doff);
-            // printf("    Request: %s\n", parser.getReqOrRes().c_str());
-            // printf("       Body: %s\n\n", parser.getData().c_str());
-            printf("HTTP Message:\n%s\n\n", data);
+            printf("HTTP Message:\n");
+            for(int i = 0; i < data_size; i++) printf("%c", data[i]);
+            printf("\n\n");
 
             return;
         case IPPROTO_UDP:
@@ -98,8 +92,6 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header,
             //printf("   Protocol: others\n");
             return;
     }
-
-
   }
 }
 
@@ -108,19 +100,38 @@ int main()
   pcap_t *handle;
   char errbuf[PCAP_ERRBUF_SIZE];
   struct bpf_program fp;
-  char filter_exp[] = "ip proto tcp";
+  char filter_exp[] = "ip proto \\tcp"; // capturing only IPv4 packets with TCP protocol
   bpf_u_int32 net;
 
   // Step 1: Open live pcap session on NIC with name enp0s3
-  handle = pcap_open_live("wlp3s0", BUFSIZ, 1, 1000, errbuf);
+  handle = pcap_open_live("enp0s3", BUFSIZ, 1, 1000, errbuf);
+  if(handle == NULL)
+  {
+    printf("Failed to create socket\n");
+    printf("Error message: %s\n", errbuf);
+    return 0;
+  }
 
   // Step 2: Compile filter_exp into BPF psuedo-code
-  pcap_compile(handle, &fp, filter_exp, 0, net);
-  pcap_setfilter(handle, &fp);
+  char pre[] = "Error ";
+  int compile_res = pcap_compile(handle, &fp, filter_exp, 0, net);
+  if(compile_res == PCAP_ERROR) {
+    printf("Failed to compile BPF\n");
+    pcap_perror(handle, pre);
+    return 0;
+  }
+
+  int setup_res = pcap_setfilter(handle, &fp);
+  if(setup_res == PCAP_ERROR) {
+    printf("Failed to attach BPF\n");
+    pcap_perror(handle, pre);
+    return 0;
+  }
 
   // Step 3: Capture packets
   pcap_loop(handle, -1, got_packet, NULL);
 
   pcap_close(handle);   //Close the handle
+
   return 0;
 }

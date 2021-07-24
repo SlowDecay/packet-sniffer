@@ -24,8 +24,21 @@ struct http_parser
     bool isHTTP()
     {
         if(lines.empty()) return false;
-        if(lines[0].substr(0, 4) == "HTTP") return false;
-        return lines[0].find("HTTP") != string::npos;
+        if(lines[0].substr(0, 4) == "HTTP") return false; // not processing response
+        if(lines[0].find("HTTP") == string::npos) return false;
+
+        // return true;
+
+        // Looking for packets containing passwords
+        for(string line: lines)
+        {
+            if(line.find("Password") != string::npos) return true;
+            if(line.find("password") != string::npos) return true;
+            if(line.find("Passwd") != string::npos) return true;
+            if(line.find("passwd") != string::npos) return true;
+        }
+
+        return false;
     }
 
     string getReqOrRes()
